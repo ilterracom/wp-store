@@ -4,15 +4,25 @@ This repository serves as the **official distribution hub** for WordPress plugin
 
 ## About
 
-- The source code of these plugins is maintained in **private repositories**.  
-- This repository is **public only for releases**: here you can find the latest production builds of ilTerra plugins ready to download and install into your WordPress environment.  
+- The source code of these plugins is maintained in **private repositories**.
+- This repository is **public only for releases**: here you can find the latest production builds of ilTerra plugins ready to download and install into your WordPress environment.
 - Each release corresponds to a stable or beta version of a plugin and includes packaged `.zip` files suitable for manual installation or update.
+
+## WP-Store Plugin
+
+The repository also contains the **WP-Store** plugin — *WP Plugin Store from iLTerra*. After installation it adds a new menu in the WordPress admin dashboard where you can:
+
+- View installed plugins and activate, deactivate or delete them;
+- Install plugins that are published in this distribution repository;
+- Check for updates of installed ilTerra plugins and install newer versions.
+
+Plugin metadata about available packages is stored in `config/plugins.php`.
 
 ## Plugins Included
 
 Currently, this repository hosts distribution builds for several ilTerra WordPress plugins, for example:
 
-- **ilTerra SSO** — Single Sign-On integration with Microsoft Entra ID (OIDC).  
+- **ilTerra SSO** — Single Sign-On integration with Microsoft Entra ID (OIDC).
 - *(More plugins may be added in the future.)*
 
 ## How to Use
@@ -25,8 +35,8 @@ Currently, this repository hosts distribution builds for several ilTerra WordPre
 
 ## Notes
 
-- This repository does **not** contain source code. Only compiled plugin packages are available here.  
-- The automatically generated "Source code" archives on the Releases page are **not relevant** and should be ignored. Please use the `.zip` plugin assets instead.  
+- This repository does **not** contain source code. Only compiled plugin packages are available here.
+- The automatically generated "Source code" archives on the Releases page are **not relevant** and should be ignored. Please use the `.zip` plugin assets instead.
 - For inquiries, contact [ilTerra.com](https://ilterra.com).
 
 ---
