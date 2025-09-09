@@ -87,9 +87,6 @@ function wp_store_handle_actions() {
             break;
         case 'install':
             check_admin_referer( 'wp-store-install_' . $prefix );
-            if ( empty( $version ) ) {
-                wp_store_version_selector_page( $prefix, 'install' );
-            }
             $output = wp_store_install_plugin( $prefix, $version );
             if ( is_wp_error( $output ) ) {
                 wp_die( esc_html( $output->get_error_message() ) . wp_store_return_link() );
@@ -292,7 +289,7 @@ function wp_store_build_download_url( $prefix, $version ) {
  * Install or update a plugin from the GitHub repository.
  *
  * @param string $prefix  Plugin prefix.
- * @param string $version Version string (required).
+ * @param string $version   Optional version string. Defaults to latest release.
  * @param bool   $overwrite Whether to overwrite existing plugin.
  */
 function wp_store_install_plugin( $prefix, $version = '', $overwrite = false ) {
@@ -303,7 +300,11 @@ function wp_store_install_plugin( $prefix, $version = '', $overwrite = false ) {
     $messages[] = sprintf( 'Preparing installation for %s...', $prefix );
 
     if ( empty( $version ) ) {
-        return new WP_Error( 'wp_store_no_version', __( 'No version specified for installation.', 'wp-store' ) );
+        $version = wp_store_get_latest_version( $prefix );
+    }
+
+    if ( empty( $version ) ) {
+        return new WP_Error( 'wp_store_no_version', __( 'No version found for the plugin.', 'wp-store' ) );
     }
 
     $messages[] = sprintf( 'Selected version: %s', $version );
