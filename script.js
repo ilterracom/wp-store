@@ -5,7 +5,7 @@ async function updateDownloadLink() {
     if (Array.isArray(tags) && tags.length) {
       const latest = tags.sort((a, b) => a.ref.localeCompare(b.ref)).pop();
       const tag = latest.ref.replace('refs/tags/', '');
-      const url = `https://github.com/ilterracom/wp-store/archive/refs/tags/${tag}.zip`;
+      const url = `https://github.com/ilterracom/wp-store/releases/download/${tag}/${tag.replace("/", "_")}.zip`;
       const btn = document.getElementById('download-link');
       btn.href = url;
       btn.textContent = `Download ${tag}`;
