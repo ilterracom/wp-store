@@ -34,22 +34,26 @@ function wp_store_available_plugins() {
 add_action( 'admin_menu', 'wp_store_register_menu' );
 function wp_store_register_menu() {
     add_menu_page(
-        'WP-Store',
+        'WP Plugin Store from iLTerra',
         'WP-Store',
         'manage_options',
         'wp-store',
-        'wp_store_manager_page',
+        '__return_null',
         'dashicons-store',
         65
     );
+
     add_submenu_page(
         'wp-store',
-        'Manager',
+        'WP Plugin Store from iLTerra',
         'Manager',
         'manage_options',
-        'wp-store',
+        'wp-store-manager',
         'wp_store_manager_page'
     );
+
+    // Remove duplicate submenu linking to the top-level menu.
+    remove_submenu_page( 'wp-store', 'wp-store' );
 }
 
 // Handle actions: activate, deactivate, delete, install, update.
@@ -66,7 +70,6 @@ function wp_store_handle_actions() {
     $action = sanitize_key( $_GET['wp_store_action'] );
     $plugin = isset( $_GET['plugin'] ) ? sanitize_text_field( wp_unslash( $_GET['plugin'] ) ) : '';
     $prefix = isset( $_GET['prefix'] ) ? sanitize_text_field( wp_unslash( $_GET['prefix'] ) ) : '';
-    $version = isset( $_GET['version'] ) ? sanitize_text_field( wp_unslash( $_GET['version'] ) ) : '';
 
     switch ( $action ) {
         case 'activate':
@@ -82,16 +85,22 @@ function wp_store_handle_actions() {
             delete_plugins( [ $plugin ] );
             break;
         case 'install':
-            check_admin_referer( 'wp-store-install_' . $prefix . '_' . $version );
-            wp_store_install_plugin( $prefix, $version );
-            break;
+            check_admin_referer( 'wp-store-install_' . $prefix );
+            $output = wp_store_install_plugin( $prefix );
+            if ( is_wp_error( $output ) ) {
+                wp_die( esc_html( $output->get_error_message() ) . wp_store_return_link() );
+            }
+            wp_die( $output . wp_store_return_link() );
         case 'update':
             check_admin_referer( 'wp-store-update_' . $plugin );
-            wp_store_install_plugin( $prefix, $version, true );
-            break;
+            $output = wp_store_install_plugin( $prefix, '', true );
+            if ( is_wp_error( $output ) ) {
+                wp_die( esc_html( $output->get_error_message() ) . wp_store_return_link() );
+            }
+            wp_die( $output . wp_store_return_link() );
     }
 
-    wp_safe_redirect( remove_query_arg( [ 'wp_store_action', 'plugin', 'prefix', 'version', '_wpnonce' ] ) );
+    wp_safe_redirect( remove_query_arg( [ 'wp_store_action', 'plugin', 'prefix', '_wpnonce' ] ) );
     exit;
 }
 
@@ -103,12 +112,23 @@ function wp_store_manager_page() {
         return;
     }
 
+    $available = wp_store_available_plugins();
+    $available_prefixes = array_keys( $available );
+
+    // Filter installed plugins by available prefixes.
+    $all_plugins = get_plugins();
+    $plugins     = [];
+    foreach ( $all_plugins as $file => $data ) {
+        if ( in_array( dirname( $file ), $available_prefixes, true ) ) {
+            $plugins[ $file ] = $data;
+        }
+    }
+
     echo '<div class="wrap">';
-    echo '<h1>WP-Store Manager</h1>';
+    echo '<h1>WP Plugin Store from iLTerra</h1>';
 
     // Installed plugins list.
     echo '<h2>' . esc_html__( 'Installed Plugins', 'wp-store' ) . '</h2>';
-    $plugins = get_plugins();
     if ( ! empty( $plugins ) ) {
         echo '<table class="widefat">';
         echo '<thead><tr><th>' . esc_html__( 'Plugin', 'wp-store' ) . '</th><th>' . esc_html__( 'Actions', 'wp-store' ) . '</th></tr></thead><tbody>';
@@ -116,27 +136,22 @@ function wp_store_manager_page() {
             $is_active = is_plugin_active( $file );
             $actions   = [];
             if ( $is_active ) {
-                $url = wp_nonce_url( add_query_arg( [ 'wp_store_action' => 'deactivate', 'plugin' => $file ] ), 'wp-store-deactivate_' . $file );
+                $url       = wp_nonce_url( add_query_arg( [ 'wp_store_action' => 'deactivate', 'plugin' => $file ] ), 'wp-store-deactivate_' . $file );
                 $actions[] = '<a href="' . esc_url( $url ) . '">' . esc_html__( 'Deactivate', 'wp-store' ) . '</a>';
             } else {
-                $url = wp_nonce_url( add_query_arg( [ 'wp_store_action' => 'activate', 'plugin' => $file ] ), 'wp-store-activate_' . $file );
+                $url       = wp_nonce_url( add_query_arg( [ 'wp_store_action' => 'activate', 'plugin' => $file ] ), 'wp-store-activate_' . $file );
                 $actions[] = '<a href="' . esc_url( $url ) . '">' . esc_html__( 'Activate', 'wp-store' ) . '</a>';
             }
-            $url = wp_nonce_url( add_query_arg( [ 'wp_store_action' => 'delete', 'plugin' => $file ] ), 'wp-store-delete_' . $file );
+            $url       = wp_nonce_url( add_query_arg( [ 'wp_store_action' => 'delete', 'plugin' => $file ] ), 'wp-store-delete_' . $file );
             $actions[] = '<a href="' . esc_url( $url ) . '">' . esc_html__( 'Delete', 'wp-store' ) . '</a>';
 
-            // Update check for plugins managed by store.
             $dir = dirname( $file );
-            $available = wp_store_available_plugins();
-            if ( isset( $available[ $dir ] ) ) {
-                $versions = wp_store_get_versions( $dir );
-                if ( ! empty( $versions ) ) {
-                    usort( $versions, 'version_compare' );
-                    $latest = end( $versions );
-                    if ( version_compare( $data['Version'], $latest, '<' ) ) {
-                        $url = wp_nonce_url( add_query_arg( [ 'wp_store_action' => 'update', 'plugin' => $file, 'prefix' => $dir, 'version' => $latest ] ), 'wp-store-update_' . $file );
-                        $actions[] = '<a href="' . esc_url( $url ) . '">' . esc_html__( 'Update to', 'wp-store' ) . ' ' . esc_html( $latest ) . '</a>';
-                    }
+            $latest = wp_store_get_latest_version( $dir );
+            if ( $latest ) {
+                $latest_clean = preg_replace( '/^v/', '', $latest );
+                if ( $data['Version'] !== $latest_clean ) {
+                    $url       = wp_nonce_url( add_query_arg( [ 'wp_store_action' => 'update', 'plugin' => $file, 'prefix' => $dir ] ), 'wp-store-update_' . $file );
+                    $actions[] = '<a href="' . esc_url( $url ) . '">' . sprintf( esc_html__( 'Update to %s', 'wp-store' ), esc_html( $latest_clean ) ) . '</a>';
                 }
             }
 
@@ -152,73 +167,68 @@ function wp_store_manager_page() {
 
     // Available plugins.
     echo '<h2>' . esc_html__( 'Available Plugins', 'wp-store' ) . '</h2>';
-    $available = wp_store_available_plugins();
     $installed_prefixes = [];
     foreach ( array_keys( $plugins ) as $plugin_file ) {
         $installed_prefixes[] = dirname( $plugin_file );
     }
     if ( ! empty( $available ) ) {
-        echo '<ul>';
+        echo '<table class="widefat">';
+        echo '<thead><tr><th>' . esc_html__( 'Plugin', 'wp-store' ) . '</th><th>' . esc_html__( 'Actions', 'wp-store' ) . '</th></tr></thead><tbody>';
         foreach ( $available as $prefix => $info ) {
             if ( in_array( $prefix, $installed_prefixes, true ) ) {
                 continue;
             }
-            $url = add_query_arg( [ 'page' => 'wp-store', 'prefix' => $prefix ] );
-            $url = wp_nonce_url( add_query_arg( [ 'wp_store_action' => 'show_versions', 'prefix' => $prefix ], $url ), 'wp-store-show_versions_' . $prefix );
-            echo '<li><strong>' . esc_html( $info['name'] ) . '</strong> — ' . esc_html( $info['description'] ) . ' <a href="' . esc_url( $url ) . '">' . esc_html__( 'Install', 'wp-store' ) . '</a></li>';
+            $url = wp_nonce_url( add_query_arg( [ 'wp_store_action' => 'install', 'prefix' => $prefix ] ), 'wp-store-install_' . $prefix );
+            echo '<tr>';
+            echo '<td><strong>' . esc_html( $info['name'] ) . '</strong><br/>' . esc_html( $info['description'] ) . '</td>';
+            echo '<td><a href="' . esc_url( $url ) . '">' . esc_html__( 'Install', 'wp-store' ) . '</a></td>';
+            echo '</tr>';
         }
-        echo '</ul>';
+        echo '</tbody></table>';
     } else {
         echo '<p>' . esc_html__( 'No plugins available for installation.', 'wp-store' ) . '</p>';
-    }
-
-    // Show versions for a requested prefix.
-    if ( isset( $_GET['wp_store_action'] ) && 'show_versions' === $_GET['wp_store_action'] && ! empty( $_GET['prefix'] ) ) {
-        $prefix   = sanitize_text_field( wp_unslash( $_GET['prefix'] ) );
-        $versions = wp_store_get_versions( $prefix );
-        if ( ! empty( $versions ) ) {
-            echo '<h2>' . sprintf( esc_html__( 'Install %s', 'wp-store' ), esc_html( $available[ $prefix ]['name'] ) ) . '</h2>';
-            echo '<ul>';
-            foreach ( $versions as $version ) {
-                $url = wp_nonce_url( add_query_arg( [ 'wp_store_action' => 'install', 'prefix' => $prefix, 'version' => $version ] ), 'wp-store-install_' . $prefix . '_' . $version );
-                echo '<li>' . esc_html( $version ) . ' <a href="' . esc_url( $url ) . '">' . esc_html__( 'Install', 'wp-store' ) . '</a></li>';
-            }
-            echo '</ul>';
-        }
     }
 
     echo '</div>';
 }
 
 /**
- * Retrieve available versions for a plugin prefix from GitHub tags.
+ * Retrieve the latest available version for a plugin prefix from GitHub tags.
  *
  * @param string $prefix Plugin prefix.
- * @return array List of versions.
+ * @return string Latest version string or empty on failure.
  */
-function wp_store_get_versions( $prefix ) {
+function wp_store_get_latest_version( $prefix ) {
     $url      = 'https://api.github.com/repos/ilterracom/wp-store/git/matching-refs/tags/' . rawurlencode( $prefix ) . '/';
     $response = wp_remote_get( $url, [ 'timeout' => 15 ] );
     if ( is_wp_error( $response ) ) {
-        return [];
+        return '';
     }
     $body = wp_remote_retrieve_body( $response );
     $data = json_decode( $body, true );
     if ( empty( $data ) || ! is_array( $data ) ) {
-        return [];
+        return '';
     }
-    $versions = [];
+    $latest_version = '';
+    $latest_build   = 0;
+    $latest_semver  = '0.0.0';
     foreach ( $data as $item ) {
-        if ( ! empty( $item['ref'] ) ) {
-            $ref     = $item['ref']; // refs/tags/prefix/version
-            $parts   = explode( '/', $ref );
-            $version = end( $parts );
-            if ( $version ) {
-                $versions[] = $version;
+        if ( empty( $item['ref'] ) ) {
+            continue;
+        }
+        $parts   = explode( '/', $item['ref'] );
+        $version = end( $parts );
+        if ( preg_match( '/^v(\d+\.\d+\.\d+)-build-(\d+)$/', $version, $m ) ) {
+            $semver = $m[1];
+            $build  = (int) $m[2];
+            if ( version_compare( $semver, $latest_semver, '>' ) || ( version_compare( $semver, $latest_semver, '==' ) && $build > $latest_build ) ) {
+                $latest_semver  = $semver;
+                $latest_build   = $build;
+                $latest_version = $version;
             }
         }
     }
-    return $versions;
+    return $latest_version;
 }
 
 /**
@@ -229,7 +239,7 @@ function wp_store_get_versions( $prefix ) {
  * @return string Download URL.
  */
 function wp_store_build_download_url( $prefix, $version ) {
-    return sprintf( 'https://github.com/ilterracom/wp-store/archive/refs/tags/%s/%s.zip', $prefix, $version );
+    return sprintf( 'https://github.com/ilterracom/wp-store/releases/download/%s/%s/%s_%s.zip', $prefix, $version, $prefix, $version );
 }
 
 /**
@@ -239,16 +249,52 @@ function wp_store_build_download_url( $prefix, $version ) {
  * @param string $version Version string.
  * @param bool   $overwrite Whether to overwrite existing plugin.
  */
-function wp_store_install_plugin( $prefix, $version, $overwrite = false ) {
+function wp_store_install_plugin( $prefix, $version = '', $overwrite = false ) {
     include_once ABSPATH . 'wp-admin/includes/class-wp-upgrader.php';
     include_once ABSPATH . 'wp-admin/includes/file.php';
 
+    $messages = [];
+    $messages[] = sprintf( 'Checking latest version for %s...', $prefix );
+
+    if ( empty( $version ) ) {
+        $version = wp_store_get_latest_version( $prefix );
+    }
+
+    if ( empty( $version ) ) {
+        return new WP_Error( 'wp_store_no_version', __( 'No version found for the plugin.', 'wp-store' ) );
+    }
+
+    $messages[] = sprintf( 'Selected version: %s', $version );
     $download_url = wp_store_build_download_url( $prefix, $version );
-    $upgrader     = new Plugin_Upgrader( new Automatic_Upgrader_Skin() );
+    $messages[]   = sprintf( 'Downloading package from %s', $download_url );
 
-    add_filter( 'upgrader_clear_destination', function( $clear, $dest, $up, $hook ) use ( $overwrite ) {
+    $upgrader = new Plugin_Upgrader( new Automatic_Upgrader_Skin() );
+
+    add_filter( 'upgrader_clear_destination', function( $clear ) use ( $overwrite ) {
         return $overwrite ? true : $clear;
-    }, 10, 4 );
+    } );
 
-    $upgrader->install( $download_url );
+    $result = $upgrader->install( $download_url );
+    if ( is_wp_error( $result ) ) {
+        return $result;
+    }
+
+    $plugin_file = $upgrader->plugin_info();
+    if ( $plugin_file ) {
+        $messages[] = __( 'Activating plugin...', 'wp-store' );
+        activate_plugin( $plugin_file );
+        $messages[] = __( 'Plugin activated.', 'wp-store' );
+    }
+
+    return implode( '<br/>', array_map( 'esc_html', $messages ) );
+}
+
+/**
+ * Helper to build return link HTML.
+ *
+ * @return string
+ */
+function wp_store_return_link() {
+    $url = add_query_arg( [ 'page' => 'wp-store-manager' ], admin_url( 'admin.php' ) );
+    return '<br/><a href="' . esc_url( $url ) . '">' . esc_html__( 'Return to WP-Store Manager', 'wp-store' ) . '</a>';
 }
