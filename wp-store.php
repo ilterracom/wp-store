@@ -4,8 +4,11 @@
  * Plugin URI: https://ilterra.com/wp-store
  * Description: WP Plugin Store from iLTerra. Alternative plugin manager.
  * Version: 0.1.0
- * Author: iLTerra
- * Author URI: https://ilterra.com
+ * Requires at least: 5.2
+ * Requires PHP: 7.4
+ * Author:      Yauhen Panimatchanka
+ * Author URI:  https://ilterra.com
+ * License:     Proprietary
  * Text Domain: wp-store
  */
 
