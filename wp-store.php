@@ -218,7 +218,7 @@ function wp_store_get_latest_version( $prefix ) {
         }
         $parts   = explode( '/', $item['ref'] );
         $version = end( $parts );
-        if ( preg_match( '/^v(\d+\.\d+\.\d+)-build-(\d+)$/', $version, $m ) ) {
+        if ( preg_match( '/^v(\d+\.\d+\.\d+)_build-(\d+)$/', $version, $m ) ) {
             $semver = $m[1];
             $build  = (int) $m[2];
             if ( version_compare( $semver, $latest_semver, '>' ) || ( version_compare( $semver, $latest_semver, '==' ) && $build > $latest_build ) ) {
