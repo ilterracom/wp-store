@@ -239,7 +239,7 @@ function wp_store_get_latest_version( $prefix ) {
  * @return string Download URL.
  */
 function wp_store_build_download_url( $prefix, $version ) {
-    return sprintf( 'https://api.github.com/repos/ilterracom/wp-store/zipball/%s/%s', $prefix, $version );
+    return sprintf( 'https://github.com/ilterracom/wp-store/releases/download/%s/%s/%s_%s.zip', $prefix, $version, $prefix, $version );
 }
 
 /**
