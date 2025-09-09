@@ -8,10 +8,10 @@ async function updateDownloadLink() {
       const url = `https://github.com/ilterracom/wp-store/archive/refs/tags/${tag}.zip`;
       const btn = document.getElementById('download-link');
       btn.href = url;
-      btn.textContent = `Скачать ${tag}`;
+      btn.textContent = `Download ${tag}`;
     }
   } catch (err) {
-    console.error('Не удалось получить последнюю версию плагина', err);
+    console.error('Failed to retrieve the latest plugin version', err);
   }
 }
 
