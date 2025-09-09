@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Виджет загрузки WP Store</title>
+</head>
+<body>
+  <!-- Этот код можно встроить на любую страницу -->
+  <div id="wp-store-widget">
+    <a id="wp-store-widget-btn" href="#" style="display:inline-block;padding:10px 20px;background:#4b6cb7;color:#fff;border-radius:4px;text-decoration:none;">Скачать WP Store</a>
+  </div>
+  <script>
+    async function updateWpStoreWidget() {
+      try {
+        const res = await fetch('https://api.github.com/repos/ilterracom/wp-store/git/matching-refs/tags/wp-store/');
+        const tags = await res.json();
+        if (Array.isArray(tags) && tags.length) {
+          const latest = tags.sort((a,b) => a.ref.localeCompare(b.ref)).pop();
+          const tag = latest.ref.replace('refs/tags/','');
+          const url = `https://github.com/ilterracom/wp-store/archive/refs/tags/${tag}.zip`;
+          const btn = document.getElementById('wp-store-widget-btn');
+          btn.href = url;
+          btn.textContent = `Скачать WP Store ${tag}`;
+        }
+      } catch (e) {
+        console.error('Не удалось обновить ссылку', e);
+      }
+    }
+    updateWpStoreWidget();
+  </script>
+</body>
+</html>
