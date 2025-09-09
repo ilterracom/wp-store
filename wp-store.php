@@ -206,16 +206,31 @@ function wp_store_manager_page() {
  * @return array Array of version strings sorted from latest to oldest.
  */
 function wp_store_get_versions( $prefix ) {
-    $url      = 'https://api.github.com/repos/ilterracom/wp-store/git/matching-refs/tags/' . rawurlencode( $prefix ) . '/';
+    $url      = 'https://api.github.com/repos/ilterracom/wp-store/git/refs/tags/' . rawurlencode( $prefix );
     $response = wp_remote_get( $url, [ 'timeout' => 15 ] );
     if ( is_wp_error( $response ) ) {
         return [];
     }
-    $body = wp_remote_retrieve_body( $response );
-    $data = json_decode( $body, true );
-    if ( empty( $data ) || ! is_array( $data ) ) {
+
+    $code = wp_remote_retrieve_response_code( $response );
+    if ( 404 === (int) $code ) {
         return [];
     }
+
+    $body = wp_remote_retrieve_body( $response );
+    $data = json_decode( $body, true );
+    if ( empty( $data ) ) {
+        return [];
+    }
+
+    // When a single ref is matched GitHub returns an object; normalize to array.
+    if ( isset( $data['ref'] ) ) {
+        $data = [ $data ];
+    }
+    if ( ! is_array( $data ) ) {
+        return [];
+    }
+
     $versions = [];
     foreach ( $data as $item ) {
         if ( empty( $item['ref'] ) ) {
@@ -231,9 +246,11 @@ function wp_store_get_versions( $prefix ) {
             ];
         }
     }
+
     if ( empty( $versions ) ) {
         return [];
     }
+
     usort( $versions, function( $a, $b ) {
         $cmp = version_compare( $a['semver'], $b['semver'] );
         if ( 0 === $cmp ) {
@@ -241,7 +258,9 @@ function wp_store_get_versions( $prefix ) {
         }
         return $cmp;
     } );
+
     $versions = array_reverse( $versions );
+
     return array_map( function( $v ) {
         return $v['full'];
     }, $versions );
@@ -273,7 +292,7 @@ function wp_store_build_download_url( $prefix, $version ) {
  * Install or update a plugin from the GitHub repository.
  *
  * @param string $prefix  Plugin prefix.
- * @param string $version Version string.
+ * @param string $version Version string (required).
  * @param bool   $overwrite Whether to overwrite existing plugin.
  */
 function wp_store_install_plugin( $prefix, $version = '', $overwrite = false ) {
@@ -284,11 +303,7 @@ function wp_store_install_plugin( $prefix, $version = '', $overwrite = false ) {
     $messages[] = sprintf( 'Preparing installation for %s...', $prefix );
 
     if ( empty( $version ) ) {
-        $version = wp_store_get_latest_version( $prefix );
-    }
-
-    if ( empty( $version ) ) {
-        return new WP_Error( 'wp_store_no_version', __( 'No version found for the plugin.', 'wp-store' ) );
+        return new WP_Error( 'wp_store_no_version', __( 'No version specified for installation.', 'wp-store' ) );
     }
 
     $messages[] = sprintf( 'Selected version: %s', $version );
